@@ -18,7 +18,7 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
     @IBOutlet private weak var previewView: PreviewView!
     // クレカの形の表す枠線のFrameを取得するためだけのView。
     @IBOutlet private weak var creditCardFrameView: UIView!
-    private var roiFrame = CGRect.zero
+    private var roiFrame: CGRect?
     // このViewのレイヤーに、黒透明のViewにクレカの大きさにmaskされたレイヤーを乗せる
     @IBOutlet private weak var croppedView: UIView!
 
@@ -63,8 +63,6 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
                 strongSelf.dismiss(animated: false, completion: nil)
                 return
             }
-            // 黒いきりぬきViewのセットアップ
-            strongSelf.setupCroppedView()
             //　カメラセッションの設定を始める
             strongSelf.session.beginConfiguration()
             //　カメラセッションのインプットについての設定
@@ -79,16 +77,22 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
             strongSelf.session.startRunning()
         }
     }
-
+    
+    override func viewDidLayoutSubviews() {
+        // 黒いきりぬきViewのセットアップ
+        setupCroppedView()
+    }
+    
     func setupCroppedView() {
+        guard roiFrame == nil else { return }
         let backLayer = CALayer()
-        backLayer.frame = view.bounds
+        backLayer.frame = previewView.bounds
         backLayer.backgroundColor = UIColor.black.withAlphaComponent(0.8).cgColor
 
         let maskLayer = CAShapeLayer()
         let path = UIBezierPath(roundedRect: creditCardFrameView.frame, cornerRadius: 10.0)
 
-        path.append(UIBezierPath(rect: view.bounds))
+        path.append(UIBezierPath(rect: previewView.bounds))
         maskLayer.path = path.cgPath
         maskLayer.fillRule = .evenOdd
 
@@ -101,7 +105,7 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
         let ratioHeight = imageHeight / previewView.frame.height
         let ratioWidth =  imageWidth / previewView.frame.width
 
-        roiFrame = CGRect.init(x: creditCardFrameView.frame.origin.x * ratioWidth,
+        roiFrame = CGRect(x: creditCardFrameView.frame.origin.x * ratioWidth,
                                y: creditCardFrameView.frame.origin.y * ratioHeight,
                                width: creditCardFrameView.frame.width * ratioWidth,
                                height: creditCardFrameView.frame.height * ratioHeight)
@@ -165,7 +169,7 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
     func setupBarButtonItem() {
         let barButtonItem =  UIBarButtonItem(
             barButtonSystemItem: .cancel,
-            target: nil,
+            target: self,
             action: #selector(cancel)
         )
         navigationItem.leftBarButtonItem = barButtonItem
@@ -194,6 +198,7 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
         VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &cgImage)
 
         guard let fullCameraImage = cgImage,
+              let roiFrame = roiFrame,
             let croppedImage = fullCameraImage.cropping(to: roiFrame) else {
             return
         }

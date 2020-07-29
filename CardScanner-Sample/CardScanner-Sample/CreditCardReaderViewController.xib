@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="16097" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="17132" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16087"/>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17105.1"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -22,13 +24,13 @@
             <subviews>
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="c4E-Jb-DK7" customClass="PreviewView" customModule="CardScanner_Sample" customModuleProvider="target">
                     <rect key="frame" x="0.0" y="0.0" width="414" height="745"/>
-                    <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                    <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                     <constraints>
                         <constraint firstAttribute="width" secondItem="c4E-Jb-DK7" secondAttribute="height" multiplier="1:1.8" id="dGQ-po-9ox"/>
                     </constraints>
                 </view>
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="fb2-fs-kEp">
-                    <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                    <rect key="frame" x="0.0" y="0.0" width="414" height="745"/>
                 </view>
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="5kc-50-Gxr">
                     <rect key="frame" x="20" y="257" width="374" height="231"/>
@@ -44,24 +46,29 @@
                     <nil key="highlightedColor"/>
                 </label>
             </subviews>
-            <color key="backgroundColor" red="0.96078431369999995" green="0.96078431369999995" blue="0.96078431369999995" alpha="1" colorSpace="calibratedRGB"/>
+            <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
+            <color key="backgroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
             <constraints>
                 <constraint firstItem="c4E-Jb-DK7" firstAttribute="top" secondItem="i5M-Pr-FkT" secondAttribute="top" id="2C3-fj-2Sa"/>
+                <constraint firstItem="fb2-fs-kEp" firstAttribute="bottom" secondItem="c4E-Jb-DK7" secondAttribute="bottom" id="5id-HQ-eXC"/>
                 <constraint firstItem="5kc-50-Gxr" firstAttribute="centerX" secondItem="fnl-2z-Ty3" secondAttribute="centerX" id="73j-xi-JxL"/>
-                <constraint firstAttribute="bottom" secondItem="fb2-fs-kEp" secondAttribute="bottom" id="9uH-GD-8Yc"/>
                 <constraint firstItem="5kc-50-Gxr" firstAttribute="top" secondItem="Fhg-SI-TGL" secondAttribute="bottom" constant="40" id="F8p-tJ-XIt"/>
                 <constraint firstItem="Fhg-SI-TGL" firstAttribute="centerX" secondItem="fnl-2z-Ty3" secondAttribute="centerX" id="JOU-OJ-leo"/>
                 <constraint firstItem="fb2-fs-kEp" firstAttribute="top" secondItem="i5M-Pr-FkT" secondAttribute="top" id="PVy-7m-Fbh"/>
-                <constraint firstItem="fb2-fs-kEp" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" id="QGc-lg-RnA"/>
-                <constraint firstItem="5kc-50-Gxr" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" constant="20" id="ZOd-1p-eXO"/>
+                <constraint firstItem="fb2-fs-kEp" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" id="QGc-lg-RnA"/>
+                <constraint firstItem="5kc-50-Gxr" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" constant="20" id="ZOd-1p-eXO"/>
                 <constraint firstItem="c4E-Jb-DK7" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" id="ZWj-lH-Mi4"/>
-                <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="5kc-50-Gxr" secondAttribute="trailing" constant="20" id="aia-Gq-C8y"/>
+                <constraint firstAttribute="trailing" secondItem="5kc-50-Gxr" secondAttribute="trailing" constant="20" id="aia-Gq-C8y"/>
                 <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="c4E-Jb-DK7" secondAttribute="trailing" id="bQM-bw-RIi"/>
-                <constraint firstItem="fb2-fs-kEp" firstAttribute="trailing" secondItem="fnl-2z-Ty3" secondAttribute="trailing" id="fAe-es-ADg"/>
+                <constraint firstItem="fb2-fs-kEp" firstAttribute="trailing" secondItem="i5M-Pr-FkT" secondAttribute="trailing" id="fAe-es-ADg"/>
                 <constraint firstItem="5kc-50-Gxr" firstAttribute="centerY" secondItem="c4E-Jb-DK7" secondAttribute="centerY" id="y7o-tk-6xg"/>
             </constraints>
-            <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
             <point key="canvasLocation" x="-36.231884057971016" y="89.732142857142847"/>
         </view>
     </objects>
+    <resources>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
 </document>
