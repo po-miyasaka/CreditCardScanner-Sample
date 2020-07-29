@@ -10,15 +10,18 @@ import UIKit
 
 class ViewController: UIViewController {
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
+    @IBOutlet weak var resuleLabel: UILabel!
+
+    @IBAction func startButton(_ sender: UIButton) {
+
         if #available(iOS 13.0, *) {
-            let nvc = UINavigationController(rootViewController: CreditCardReaderViewController())
+            let nvc = UINavigationController(rootViewController: CreditCardReaderViewController{[weak self] in
+                print($0, $1)
+                self?.resuleLabel.text = ($0 + "\n" + "\($1.0)" + "\($1.1)")
+            })
             nvc.modalPresentationStyle = .fullScreen
             present(nvc, animated: true, completion: nil)
         }
     }
-
-
 }
 

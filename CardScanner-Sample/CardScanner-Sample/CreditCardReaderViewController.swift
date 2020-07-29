@@ -18,6 +18,7 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
     @IBOutlet private weak var previewView: PreviewView!
     // クレカの形の表す枠線のFrameを取得するためだけのView。
     @IBOutlet private weak var creditCardFrameView: UIView!
+    private var roiFrame = CGRect.zero
     // このViewのレイヤーに、黒透明のViewにクレカの大きさにmaskされたレイヤーを乗せる
     @IBOutlet private weak var croppedView: UIView!
 
@@ -27,8 +28,20 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
     var videoDeviceInput: AVCaptureDeviceInput!
     //　カメラからinputした情報をアウトプットする場所に関する情報。この場合AVCaptureVideoDataOutputSampleBufferDelegateのメソッド
     var videoDeviceOutput: AVCaptureVideoDataOutput!
+    typealias CardNumber = String
+    var creditCardNumberCandidates: [CardNumber: Int] = [:]
 
-    init() {
+    typealias ExpireDate = (String, String)
+    var expireDateCandidates: [String: Int] = [:]
+
+    var decidedExpireDate: ExpireDate? = nil
+    var decidedCreditCardNumber: String? = nil
+
+    typealias ReadCardInfoCompletion = ((CardNumber, ExpireDate) -> ())
+    var readCardInfoCompletion: ReadCardInfoCompletion
+
+    init(readCardInfoCompletion: @escaping ReadCardInfoCompletion) {
+        self.readCardInfoCompletion = readCardInfoCompletion
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -81,6 +94,17 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
 
         backLayer.mask = maskLayer
         croppedView.layer.addSublayer(backLayer)
+
+        let imageHeight: CGFloat = 1920
+        let imageWidth: CGFloat = 1080
+
+        let ratioHeight = imageHeight / previewView.frame.height
+        let ratioWidth =  imageWidth / previewView.frame.width
+
+        roiFrame = CGRect.init(x: creditCardFrameView.frame.origin.x * ratioWidth,
+                               y: creditCardFrameView.frame.origin.y * ratioHeight,
+                               width: creditCardFrameView.frame.width * ratioWidth,
+                               height: creditCardFrameView.frame.height * ratioHeight)
     }
 
     func authoricationCamera(authorizedHandler: @escaping ((Bool) -> Void) ) {
@@ -97,7 +121,7 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
     }
 
     func addInput() {
-        session.sessionPreset = .hd4K3840x2160
+        session.sessionPreset = .hd1920x1080
 
         var defaultVideoDevice: AVCaptureDevice?
 
@@ -120,6 +144,10 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
     func addOutput() {
 
         self.videoDeviceOutput = AVCaptureVideoDataOutput()
+        videoDeviceOutput.connection(with: .video)?.videoOrientation = .portrait
+        videoDeviceOutput.connections.forEach {
+            $0.videoOrientation = .portrait
+        }
         self.videoDeviceOutput.alwaysDiscardsLateVideoFrames = true
         self.videoDeviceOutput.setSampleBufferDelegate(self, queue: DispatchQueue.global())
         self.session.addOutput(self.videoDeviceOutput)
@@ -128,15 +156,25 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
     func setupPreview() {
         previewView.videoPreviewLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
         previewView.session = session
+        previewView.session?.connections.forEach {
+            $0.videoOrientation = .portrait
+        }
+
     }
 
     func setupBarButtonItem() {
         let barButtonItem =  UIBarButtonItem(
             barButtonSystemItem: .cancel,
             target: nil,
-            action: #selector(dismiss(animated:completion:))
+            action: #selector(cancel)
         )
         navigationItem.leftBarButtonItem = barButtonItem
+    }
+
+    
+
+    @objc func cancel() {
+        navigationController?.dismiss(animated: true, completion: nil)
     }
 
     let semaphore = DispatchSemaphore(value: 1)
@@ -145,6 +183,7 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
 
 //        処理を一つ一つすすめるため、排他制御（不要かも）
         semaphore.wait()
+        defer {semaphore.signal()}
 
 //        sampleBufferからCGImageをとりだすためのボイラープレート
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
@@ -153,45 +192,95 @@ final class CreditCardReaderViewController: UIViewController, AVCaptureVideoData
 
         var cgImage: CGImage?
         VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &cgImage)
-        guard let fullCameraImage = cgImage else {
+
+        guard let fullCameraImage = cgImage,
+            let croppedImage = fullCameraImage.cropping(to: roiFrame) else {
             return
         }
 
+
         let request = VNRecognizeTextRequest {[weak self] request, _ in
+            guard let strongSelf = self else { return }
 //            画像解析情報がここにわたされる。
              guard let observations = request.results as? [VNRecognizedTextObservation] else { return }
              let recognizedText = observations
-                 .compactMap { $0.topCandidates(1).first?.string }
+                .compactMap { $0.topCandidates(1).first?.string }.joined().split(separator: " ").joined()
 
 
             guard !recognizedText.isEmpty else { return }
 
 //            クレカの有効期限を抽出
-            let expirery = recognizedText.filter{ !$0.isEmpty }.compactMap {
-                expireDateString($0)
+            if let expireDate = strongSelf.expireDateString(recognizedText) {
+                let key = expireDate.0 + expireDate.1
+                let count = strongSelf.expireDateCandidates[key] ?? 0
+                strongSelf.expireDateCandidates[key] = count + 1
+                if count > 2 {
+                strongSelf.decidedExpireDate = expireDate
+                }
             }
-            print(expirery)
+
 //            クレカのカード番号を抽出
-            let cardNum = recognizedText.filter{ !$0.isEmpty }.compactMap {
-                cardNumber($0)
+            if let cardNum = strongSelf.cardNumber(recognizedText) {
+                let key = cardNum
+                let count = strongSelf.creditCardNumberCandidates[key] ?? 0
+                strongSelf.creditCardNumberCandidates[key] = count + 1
+                if count > 2 {
+                strongSelf.decidedCreditCardNumber = cardNum
+                }
             }
-            print(cardNum)
 
-            //　TODO:　複数回このハンドラーが呼ばれた後に、情報を精査して、さらに正しい情報を抽出する必要がある。
+            if let dccn = strongSelf.decidedCreditCardNumber,
+                let de = strongSelf.decidedExpireDate {
+                DispatchQueue.main.async {
+                    strongSelf.session.stopRunning()
+                    strongSelf.readCardInfoCompletion(dccn, de)
+                    strongSelf.dismiss(animated: true, completion: nil)
 
-
+                }
+            }
          }
 
-        let handler = VNImageRequestHandler(cgImage: fullCameraImage, options: [:])
+        request.recognitionLevel = .accurate
+        let handler = VNImageRequestHandler(cgImage: croppedImage, options: [:])
         do {
             try handler.perform([request])
         } catch {
             print(error)
         }
-
-        semaphore.signal()
-
     }
+
+    func expireDateString(_ string: String) -> ExpireDate? {
+        guard let regex = try? NSRegularExpression(pattern: ".*(0[1-9]|1[0-2])\\/([1-2][0-9])") else {
+            return nil
+        }
+
+        let result = regex.matches(in: string, range: NSRange(string.startIndex..., in: string))
+
+        if result.count == 0 {
+            return nil
+        }
+
+        guard let nsrange1 = result.first?.range(at: 1),
+            let range1 = Range(nsrange1, in: string) else { return nil }
+        guard let nsrange2 = result.first?.range(at: 2),
+            let range2 = Range(nsrange2, in: string) else { return nil }
+
+        return (String(string[range1]), String(string[range2]))
+    }
+
+
+    func cardNumber(_ string: String) -> CardNumber? {
+        
+        guard let regex = try? NSRegularExpression(pattern: "([0-9]{16})|(3[0-9]{14})") else {
+            return nil
+        }
+
+        let result = regex.matches(in: string, range: NSRange(string.startIndex..., in: string))
+
+        return result.first.flatMap{ Range($0.range(at: 0), in: string) }.flatMap{String(string[$0])}
+    }
+
+    
 }
 
 class PreviewView: UIView {
@@ -216,42 +305,3 @@ class PreviewView: UIView {
     }
 }
 
-func expireDateString(_ string: String) -> (String, String)? {
-    guard let regex = try? NSRegularExpression(pattern: "^.*(0[1-9]|1[0-2])\\/([1-2][0-9])$") else {
-        return nil
-    }
-
-    let result = regex.matches(in: string, range: NSRange(string.startIndex..., in: string))
-
-    if result.count == 0 {
-        return nil
-    }
-
-    guard let nsrange1 = result.first?.range(at: 1),
-        let range1 = Range(nsrange1, in: string) else { return nil }
-    guard let nsrange2 = result.first?.range(at: 2),
-        let range2 = Range(nsrange2, in: string) else { return nil }
-
-    return (String(string[range1]), String(string[range2]))
-}
-
-
-func cardNumber(_ string: String) -> (String, String)? {
-    // 調整中。
-    guard let regex = try? NSRegularExpression(pattern: "    (?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|6011[0-9]{12}|3(?:0[0-5]|[68][0-9])[0-9]{11}|3[47]{13}|(?:2131|1800|35[0-9]{3})[0-9]{11})") else {
-        return nil
-    }
-
-    let result = regex.matches(in: string, range: NSRange(string.startIndex..., in: string))
-
-    if result.count == 0 {
-        return nil
-    }
-
-    guard let nsrange1 = result.first?.range(at: 1),
-        let range1 = Range(nsrange1, in: string) else { return nil }
-    guard let nsrange2 = result.first?.range(at: 2),
-        let range2 = Range(nsrange2, in: string) else { return nil }
-
-    return (String(string[range1]), String(string[range2]))
-}
